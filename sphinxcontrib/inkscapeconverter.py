@@ -65,7 +65,7 @@ class InkscapeConverter(ImageConverter):
             args = ([self.config.inkscape_converter_bin] +
                     self.config.inkscape_converter_args)
             if self._inkscape_version.startswith('1.'):
-                    args += ['--export-file=' + _to, _from]
+                    args += ['--export-filename=' + _to, _from]
             else:
                     args += ['--export-pdf=' + _to, _from]
             logger.debug('Invoking %r ...', args)
