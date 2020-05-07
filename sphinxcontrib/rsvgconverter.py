@@ -12,6 +12,7 @@
 """
 import subprocess
 
+from docutils import nodes
 from sphinx.errors import ExtensionError
 from sphinx.locale import __
 from sphinx.transforms.post_transforms.images import ImageConverter
@@ -26,64 +27,64 @@ if False:
 
 logger = logging.getLogger(__name__)
 
+class RSVGConverter(nodes.General, nodes.Element):
+    pass
 
-class RSVGConverter(ImageConverter):
-    conversion_rules = [
-        ('image/svg+xml', 'application/pdf'),
-    ]
 
-    def is_available(self):
-        # type: () -> bool
-        """Confirms if RSVG converter is available or not."""
-        try:
-            args = [self.config.rsvg_converter_bin, '--version']
-            logger.debug('Invoking %r ...', args)
-            ret = subprocess.call(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-            if ret == 0:
-                return True
-            else:
-                return False
-        except (OSError, IOError):
-            logger.warning(__('RSVG converter command %r cannot be run. '
-                              'Check the rsvg_converter_bin setting'),
-                           self.config.rsvg_converter_bin)
+def is_available(self):
+    # type: () -> bool
+    """Confirms if RSVG converter is available or not."""
+    try:
+        args = [self.config.rsvg_converter_bin, '--version']
+        logger.debug('Invoking %r ...', args)
+        ret = subprocess.call(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        if ret == 0:
+            return True
+        else:
             return False
+    except (OSError, IOError):
+        logger.warning(__('RSVG converter command %r cannot be run. '
+                          'Check the rsvg_converter_bin setting'),
+                       self.config.rsvg_converter_bin)
+        return False
 
-    def convert(self, _from, _to):
-        # type: (unicode, unicode) -> bool
-        """Converts the image from SVG to PDF via libRSVG."""
-        try:
-            args = ([self.config.rsvg_converter_bin] +
-                    self.config.rsvg_converter_args +
-                    ['--format=pdf', '--output=' + _to, _from])
-            logger.debug('Invoking %r ...', args)
-            p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        except OSError as err:
-            if err.errno != ENOENT:  # No such file or directory
-                raise
-            logger.warning(__('RSVG converter command %r cannot be run. '
-                              'Check the rsvg_converter_bin setting'),
-                           self.config.rsvg_converter_bin)
-            return False
+def convert(self, _from, _to, node):
+    is_available(self)
 
-        try:
-            stdout, stderr = p.communicate()
-        except (OSError, IOError) as err:
-            if err.errno not in (EPIPE, EINVAL):
-                raise
-            stdout, stderr = p.stdout.read(), p.stderr.read()
-            p.wait()
-        if p.returncode != 0:
-            raise ExtensionError(__('RSVG converter exited with error:\n'
-                                    '[stderr]\n%s\n[stdout]\n%s') %
-                                 (stderr, stdout))
+    # type: (unicode, unicode) -> bool
+    """Converts the image from SVG to PDF via libRSVG."""
+    try:
+        args = ([self.config.rsvg_converter_bin] +
+                self.config.rsvg_converter_args +
+                ['--format=pdf', '--output=' + _to, _from])
+        logger.debug('Invoking %r ...', args)
+        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    except OSError as err:
+        if err.errno != ENOENT:  # No such file or directory
+            raise
+        logger.warning(__('RSVG converter command %r cannot be run. '
+                          'Check the rsvg_converter_bin setting'),
+                       self.config.rsvg_converter_bin)
+        return False
 
-        return True
+    try:
+        stdout, stderr = p.communicate()
+    except (OSError, IOError) as err:
+        if err.errno not in (EPIPE, EINVAL):
+            raise
+        stdout, stderr = p.stdout.read(), p.stderr.read()
+        p.wait()
+    if p.returncode != 0:
+        raise ExtensionError(__('RSVG converter exited with error:\n'
+                                '[stderr]\n%s\n[stdout]\n%s') %
+                             (stderr, stdout))
+
+    return True
 
 
 def setup(app):
     # type: (Sphinx) -> Dict[unicode, Any]
-    app.add_post_transform(RSVGConverter)
+    app.add_node(RSVGConverter, latex=(convert, None))
     app.add_config_value('rsvg_converter_bin', 'rsvg-convert', 'env')
     app.add_config_value('rsvg_converter_args', [], 'env')
 
